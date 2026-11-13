@@ -614,12 +614,11 @@ node frontend/src/verify_e2e_demo.js
 
 Developed for **YUKTIK-2026** at **Keshav Memorial Institute of Technology (KMIT)**:
 
-- **Akhila**
-- **Surya Teja**
-- **Sri Charan**
-- **Harshith**
-- **Sai Sahasra**
-- **Mokshith**
+1. **G. Surya Teja**
+2. **D. Charmith**
+3. **P. Harshith**
+4. **P. Siddhartha**
+5. **M. Yashwanth**
 
 ---
 
