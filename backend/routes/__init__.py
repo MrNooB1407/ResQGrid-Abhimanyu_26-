@@ -15,6 +15,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from flask import Flask
 from backend.routes.allocations import allocations_bp
 from backend.routes.ambulances import ambulances_bp
+from backend.routes.analytics import analytics_bp
+from backend.routes.events import events_bp
 from backend.routes.health import health_bp
 from backend.routes.hospitals import hospitals_bp
 from backend.routes.incidents import incidents_bp
@@ -29,3 +31,5 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(hospitals_bp)
     app.register_blueprint(allocations_bp)
     app.register_blueprint(reallocation_bp)
+    app.register_blueprint(events_bp)
+    app.register_blueprint(analytics_bp)

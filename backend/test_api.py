@@ -1262,6 +1262,279 @@ class TestAllocationAndReallocationAPIs(unittest.TestCase):
         self.assertEqual(prod_zones, 8)
 
 
+class TestEventsAndAnalyticsAPIs(unittest.TestCase):
+    """Test suite for Step 6.7: GET /api/events and GET /api/analytics/overview."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up an isolated temporary database for events and analytics tests."""
+        cls.test_dir = tempfile.mkdtemp(prefix="resqgrid_events_analytics_test_")
+        cls.temp_db_path = Path(cls.test_dir) / "test_events_analytics.db"
+        init_db(db_path=cls.temp_db_path, seed_if_empty=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up temporary test directory."""
+        shutil.rmtree(cls.test_dir, ignore_errors=True)
+
+    def setUp(self):
+        """Reset test database to pristine seed state before each test for complete isolation."""
+        if self.temp_db_path.exists():
+            try:
+                self.temp_db_path.unlink()
+            except Exception:
+                pass
+        init_db(db_path=self.temp_db_path, seed_if_empty=True)
+
+        self.app = create_app(test_config={
+            "DATABASE": str(self.temp_db_path),
+            "TESTING": True,
+        })
+        self.client = self.app.test_client()
+
+    # -----------------------------------------------------------------------
+    # Events API Tests
+    # -----------------------------------------------------------------------
+    def test_90_events_returns_seeded_events(self):
+        """90. Verify GET /api/events returns initial seeded system events."""
+        res = self.client.get("/api/events")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+
+        self.assertTrue(data.get("success"))
+        self.assertGreaterEqual(data.get("count"), 1)
+        self.assertIsInstance(data.get("data"), list)
+
+        first_event = data["data"][-1]  # Oldest event in seed
+        self.assertEqual(first_event["event_type"], "SYSTEM_INIT")
+        self.assertIn("initialized", first_event["description"])
+        self.assertIsInstance(first_event["created_at"], str)
+
+    def test_91_events_ordering_newest_first(self):
+        """91. Verify GET /api/events orders entries newest first (descending ID)."""
+        # Create two incidents to trigger INCIDENT_REPORTED logs
+        self.client.post("/api/incidents", json={
+            "title": "First Test Incident",
+            "incident_type": "FIRE",
+            "latitude": 17.41,
+            "longitude": 78.41,
+        })
+        self.client.post("/api/incidents", json={
+            "title": "Second Test Incident",
+            "incident_type": "ROAD_ACCIDENT",
+            "latitude": 17.42,
+            "longitude": 78.42,
+        })
+
+        res = self.client.get("/api/events")
+        self.assertEqual(res.status_code, 200)
+        events = res.get_json()["data"]
+
+        self.assertGreaterEqual(len(events), 3)
+        # Verify descending order
+        for i in range(len(events) - 1):
+            self.assertGreater(events[i]["id"], events[i + 1]["id"])
+
+    def test_92_events_filter_by_type(self):
+        """92. Verify filtering events by event_type (case-insensitive)."""
+        # Create an incident to ensure INCIDENT_REPORTED exists
+        self.client.post("/api/incidents", json={
+            "title": "Filtered Incident Event",
+            "incident_type": "ROAD_ACCIDENT",
+            "latitude": 17.43,
+            "longitude": 78.43,
+        })
+
+        # Filter exact case
+        res_exact = self.client.get("/api/events?event_type=INCIDENT_REPORTED")
+        self.assertEqual(res_exact.status_code, 200)
+        data_exact = res_exact.get_json()
+        self.assertGreaterEqual(data_exact["count"], 1)
+        for ev in data_exact["data"]:
+            self.assertEqual(ev["event_type"], "INCIDENT_REPORTED")
+
+        # Filter lower case
+        res_lower = self.client.get("/api/events?event_type=incident_reported")
+        self.assertEqual(res_lower.status_code, 200)
+        data_lower = res_lower.get_json()
+        self.assertEqual(data_lower["count"], data_exact["count"])
+
+    def test_93_events_limit_validation(self):
+        """93. Verify limit parameter bounds enforcement and validation."""
+        # Insert additional events
+        for i in range(5):
+            self.client.post("/api/incidents", json={
+                "title": f"Batch Incident {i}",
+                "incident_type": "ROAD_ACCIDENT",
+                "latitude": 17.41 + i * 0.01,
+                "longitude": 78.41 + i * 0.01,
+            })
+
+        # A. Valid limit: 2
+        res_2 = self.client.get("/api/events?limit=2")
+        self.assertEqual(res_2.status_code, 200)
+        self.assertEqual(len(res_2.get_json()["data"]), 2)
+        self.assertEqual(res_2.get_json()["count"], 2)
+
+        # B. Non-numeric limit -> 400
+        res_str = self.client.get("/api/events?limit=abc")
+        self.assertEqual(res_str.status_code, 400)
+        self.assertIn("limit", res_str.get_json()["error"]["message"])
+
+        # C. Zero limit -> 400
+        res_zero = self.client.get("/api/events?limit=0")
+        self.assertEqual(res_zero.status_code, 400)
+        self.assertIn("limit", res_zero.get_json()["error"]["message"])
+
+        # D. Negative limit -> 400
+        res_neg = self.client.get("/api/events?limit=-10")
+        self.assertEqual(res_neg.status_code, 400)
+
+        # E. Limit exceeding 200 -> 400
+        res_large = self.client.get("/api/events?limit=250")
+        self.assertEqual(res_large.status_code, 400)
+
+    def test_94_events_empty_results(self):
+        """94. Verify querying for a nonexistent event_type returns 200 with empty list."""
+        res = self.client.get("/api/events?event_type=NONEXISTENT_EVENT_CATEGORY")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(data["data"], [])
+
+    # -----------------------------------------------------------------------
+    # Analytics API Tests
+    # -----------------------------------------------------------------------
+    def test_95_analytics_counts_match_seeded_database(self):
+        """95. Verify GET /api/analytics/overview matches seeded benchmark records."""
+        res = self.client.get("/api/analytics/overview")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+
+        self.assertTrue(data.get("success"))
+        metrics = data.get("data")
+        self.assertIsNotNone(metrics)
+
+        # Incidents
+        self.assertEqual(metrics["incidents"]["total"], 3)
+        self.assertEqual(metrics["incidents"]["active"], 3)
+        self.assertEqual(metrics["incidents"]["critical"], 2)
+
+        # Ambulances
+        self.assertEqual(metrics["ambulances"]["total"], 8)
+        self.assertEqual(metrics["ambulances"]["available"], 8)
+        self.assertEqual(metrics["ambulances"]["by_status"]["AVAILABLE"], 8)
+
+        # Hospitals
+        self.assertEqual(metrics["hospitals"]["total"], 5)
+        self.assertEqual(metrics["hospitals"]["total_beds"], 1980)
+        self.assertEqual(metrics["hospitals"]["available_beds"], 277)
+        self.assertEqual(metrics["hospitals"]["total_icu_beds"], 295)
+        self.assertEqual(metrics["hospitals"]["available_icu_beds"], 34)
+
+        # Response time check: unrecorded in current prototype, returns null
+        self.assertIsNone(metrics["response_time"]["average_minutes"])
+        self.assertFalse(metrics["response_time"]["recorded"])
+        self.assertIn("not yet recorded", metrics["response_time"]["explanation"].lower())
+
+        # KPIs object
+        kpis = metrics["kpis"]
+        self.assertEqual(kpis["activeEmergencies"], 3)
+        self.assertEqual(kpis["criticalIncidents"], 2)
+        self.assertEqual(kpis["availableAmbulances"], 8)
+        self.assertEqual(kpis["totalAmbulances"], 8)
+        self.assertEqual(kpis["hospitalsOnline"], 5)
+        self.assertEqual(kpis["totalHospitals"], 5)
+        self.assertIsNone(kpis["avgResponseTimeMin"])
+
+    def test_96_analytics_values_update_after_incident_creation(self):
+        """96. Verify analytics counts reflect dynamically created incidents."""
+        # Create a new critical incident
+        create_res = self.client.post("/api/incidents", json={
+            "title": "Severe Industrial Chemical Explosion",
+            "incident_type": "FIRE",
+            "latitude": 17.43,
+            "longitude": 78.43,
+            "injured_people": 6,
+            "affected_people": 12,
+            "critical_symptoms": ["cardiac arrest", "severe burns", "unresponsive"],
+        })
+        self.assertEqual(create_res.status_code, 201)
+
+        res = self.client.get("/api/analytics/overview")
+        self.assertEqual(res.status_code, 200)
+        metrics = res.get_json()["data"]
+
+        self.assertEqual(metrics["incidents"]["total"], 4)
+        self.assertEqual(metrics["incidents"]["active"], 4)
+        self.assertEqual(metrics["incidents"]["critical"], 3)
+        self.assertEqual(metrics["incidents"]["by_severity"]["CRITICAL"], 3)
+        self.assertEqual(metrics["kpis"]["activeEmergencies"], 4)
+        self.assertEqual(metrics["kpis"]["criticalIncidents"], 3)
+
+    def test_97_analytics_reflects_ambulance_allocation_changes(self):
+        """97. Verify analytics metrics update when an ambulance is allocated."""
+        inc_res = self.client.post("/api/incidents", json={
+            "title": "Road Accident for Dispatch Test",
+            "incident_type": "ROAD_ACCIDENT",
+            "latitude": 17.44,
+            "longitude": 78.38,
+            "injured_people": 1,
+        })
+        inc_id = inc_res.get_json()["data"]["id"]
+
+        alloc_res = self.client.post(f"/api/allocations/{inc_id}")
+        self.assertEqual(alloc_res.status_code, 201)
+
+        res = self.client.get("/api/analytics/overview")
+        self.assertEqual(res.status_code, 200)
+        metrics = res.get_json()["data"]
+
+        # Available ambulances decremented from 8 to 7
+        self.assertEqual(metrics["ambulances"]["available"], 7)
+        self.assertEqual(metrics["ambulances"]["by_status"]["DISPATCHED"], 1)
+        self.assertEqual(metrics["kpis"]["availableAmbulances"], 7)
+
+        # Active allocations count is 1
+        self.assertEqual(metrics["allocations"]["active"], 1)
+
+        # Available hospital beds decremented by 1
+        self.assertEqual(metrics["hospitals"]["available_beds"], 276)
+
+    def test_98_invalid_query_parameters_return_json_errors(self):
+        """98. Verify invalid query parameters on events and analytics return 400 Bad Request."""
+        # A. Unsupported query parameter on events
+        res_ev = self.client.get("/api/events?unexpected_query_param=123")
+        self.assertEqual(res_ev.status_code, 400)
+        self.assertIn("Unsupported query parameter", res_ev.get_json()["error"]["message"])
+
+        # B. Empty event_type parameter on events
+        res_ev_empty = self.client.get("/api/events?event_type=")
+        self.assertEqual(res_ev_empty.status_code, 400)
+        self.assertIn("event_type", res_ev_empty.get_json()["error"]["message"])
+
+        # C. Query parameter passed to analytics overview (which expects none)
+        res_ana = self.client.get("/api/analytics/overview?filter=active")
+        self.assertEqual(res_ana.status_code, 400)
+        self.assertIn("does not accept query parameters", res_ana.get_json()["error"]["message"])
+
+    def test_99_production_database_untouched(self):
+        """99. Verify the production SQLite database was not modified during events and analytics tests."""
+        prod_incidents = query_db("SELECT COUNT(*) AS c FROM incidents;", db_path=DEFAULT_DB_PATH, one=True)["c"]
+        prod_ambulances = query_db("SELECT COUNT(*) AS c FROM ambulances;", db_path=DEFAULT_DB_PATH, one=True)["c"]
+        prod_hospitals = query_db("SELECT COUNT(*) AS c FROM hospitals;", db_path=DEFAULT_DB_PATH, one=True)["c"]
+        prod_zones = query_db("SELECT COUNT(*) AS c FROM traffic_zones;", db_path=DEFAULT_DB_PATH, one=True)["c"]
+        prod_logs = query_db("SELECT COUNT(*) AS c FROM event_logs;", db_path=DEFAULT_DB_PATH, one=True)["c"]
+
+        self.assertEqual(prod_incidents, 3)
+        self.assertEqual(prod_ambulances, 8)
+        self.assertEqual(prod_hospitals, 5)
+        self.assertEqual(prod_zones, 8)
+        self.assertEqual(prod_logs, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
