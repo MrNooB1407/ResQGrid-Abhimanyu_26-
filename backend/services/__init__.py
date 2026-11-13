@@ -4,6 +4,15 @@ Exports core algorithmic engines for triage severity estimation, emergency routi
 resource allocation, and dynamic reallocation.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure project root is present in sys.path
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from backend.services.allocation import (
     allocate_incident,
     find_suitable_ambulances,
