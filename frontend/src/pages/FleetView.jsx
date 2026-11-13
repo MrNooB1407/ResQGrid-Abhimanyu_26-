@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Ambulance, Shield, Radio, CheckCircle2, ArrowLeft } from 'lucide-react';
 import FleetOverview from '../components/FleetOverview';
 
-export default function FleetView({ ambulances, onBackToCommand }) {
+export default function FleetView({
+  ambulances,
+  onBackToCommand,
+  onSimulateBreakdown,
+  isBreakdownLoadingId,
+}) {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const filteredAmbulances = ambulances.filter((a) => {
@@ -94,7 +99,11 @@ export default function FleetView({ ambulances, onBackToCommand }) {
       </div>
 
       {/* Fleet Table with Controls */}
-      <FleetOverview ambulances={filteredAmbulances} />
+      <FleetOverview
+        ambulances={filteredAmbulances}
+        onSimulateBreakdown={onSimulateBreakdown}
+        isBreakdownLoadingId={isBreakdownLoadingId}
+      />
     </div>
   );
 }

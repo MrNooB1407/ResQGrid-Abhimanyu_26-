@@ -92,12 +92,19 @@ export default function KpiCards({ kpis }) {
           </div>
         </div>
         <div className="kpi-value-row">
-          <span className="kpi-value">{`${kpis.avgResponseTimeMin}`}</span>
-          <span className="kpi-subtext">minutes</span>
+          <span
+            className="kpi-value"
+            style={kpis.avgResponseTimeMin === null ? { fontSize: '1.05rem', color: '#94a3b8' } : {}}
+          >
+            {kpis.avgResponseTimeMin !== null ? `${kpis.avgResponseTimeMin}m` : 'Pending telemetry'}
+          </span>
+          <span className="kpi-subtext">
+            {kpis.avgResponseTimeMin !== null ? 'minutes' : 'Awaiting hardware GPS logs'}
+          </span>
         </div>
         <div className="kpi-footer-metric" style={{ color: '#a78bfa' }}>
           <TrendingDown size={13} />
-          <span>Target: &lt; {kpis.targetResponseTimeMin} min (Optimal)</span>
+          <span>Target: &lt; {kpis.targetResponseTimeMin || 10.0} min (Optimal)</span>
         </div>
       </div>
     </div>

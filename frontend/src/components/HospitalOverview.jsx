@@ -1,7 +1,11 @@
 import React from 'react';
-import { Building2, Bed, HeartPulse, Wind } from 'lucide-react';
+import { Building2, Bed, HeartPulse, Wind, AlertTriangle } from 'lucide-react';
 
-export default function HospitalOverview({ hospitals }) {
+export default function HospitalOverview({
+  hospitals,
+  onSimulateHospitalSaturation,
+  isHospitalLoadingId,
+}) {
   const getCapacityClass = (occupancyPct) => {
     if (occupancyPct > 90) return 'critical';
     if (occupancyPct > 80) return 'moderate';
@@ -57,7 +61,21 @@ export default function HospitalOverview({ hospitals }) {
                   </div>
                   <div className="hosp-type-sub">{hosp.type} • {hosp.address}</div>
                 </div>
-                <div>{getStatusBadge(hosp.status)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  {getStatusBadge(hosp.status)}
+                  {onSimulateHospitalSaturation && (
+                    <button
+                      type="button"
+                      className="btn-warning-outline"
+                      onClick={() => onSimulateHospitalSaturation(hosp.backendId)}
+                      disabled={isHospitalLoadingId === hosp.backendId}
+                      title="Simulate ICU capacity exhaustion and divert incoming units"
+                    >
+                      <AlertTriangle size={11} />
+                      <span>{isHospitalLoadingId === hosp.backendId ? 'Simulating...' : 'Saturate'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Metrics Grid */}
@@ -96,7 +114,7 @@ export default function HospitalOverview({ hospitals }) {
                   <span className="stat-cell-value">
                     {hosp.availableVents}{' '}
                     <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
-                      / {hosp.totalVents} avail
+                      online
                     </span>
                   </span>
                 </div>

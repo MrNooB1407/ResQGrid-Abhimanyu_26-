@@ -22,6 +22,17 @@ export default function EmergencyMap({
   const [showHospitals, setShowHospitals] = useState(true);
   const [activeTooltip, setActiveTooltip] = useState(null);
 
+  // Filter out invalid/unprojectable coordinates so they are never rendered at map center (50%, 50%)
+  const visibleIncidents = (incidents || []).filter(
+    (inc) => inc.coordinates && inc.coordinates.isProjected && inc.coordinates.x !== null && inc.coordinates.y !== null
+  );
+  const visibleAmbulances = (ambulances || []).filter(
+    (amb) => amb.coordinates && amb.coordinates.isProjected && amb.coordinates.x !== null && amb.coordinates.y !== null
+  );
+  const visibleHospitals = (hospitals || []).filter(
+    (hosp) => hosp.coordinates && hosp.coordinates.isProjected && hosp.coordinates.x !== null && hosp.coordinates.y !== null
+  );
+
   const handleZoom = (delta) => {
     setZoomLevel((prev) => Math.min(Math.max(prev + delta, 0.8), 1.6));
   };
@@ -47,7 +58,7 @@ export default function EmergencyMap({
             type="button"
             style={{ width: 'auto', padding: '0 0.55rem', fontSize: '0.7rem' }}
           >
-            Incidents ({incidents.length})
+            Incidents ({visibleIncidents.length})
           </button>
           <button
             className={`map-ctrl-btn ${showAmbulances ? 'active' : ''}`}
@@ -56,7 +67,7 @@ export default function EmergencyMap({
             type="button"
             style={{ width: 'auto', padding: '0 0.55rem', fontSize: '0.7rem' }}
           >
-            Fleet ({ambulances.length})
+            Fleet ({visibleAmbulances.length})
           </button>
           <button
             className={`map-ctrl-btn ${showHospitals ? 'active' : ''}`}
@@ -65,7 +76,7 @@ export default function EmergencyMap({
             type="button"
             style={{ width: 'auto', padding: '0 0.55rem', fontSize: '0.7rem' }}
           >
-            Hospitals ({hospitals.length})
+            Hospitals ({visibleHospitals.length})
           </button>
         </div>
       </div>
@@ -220,7 +231,7 @@ export default function EmergencyMap({
 
           {/* 5 SEEDED HOSPITAL PINS */}
           {showHospitals &&
-            hospitals.map((hosp) => (
+            visibleHospitals.map((hosp) => (
               <div
                 key={hosp.id}
                 className="map-marker-pin"
@@ -242,7 +253,7 @@ export default function EmergencyMap({
 
           {/* 8 SEEDED AMBULANCE PINS */}
           {showAmbulances &&
-            ambulances.map((amb) => {
+            visibleAmbulances.map((amb) => {
               const isEnRoute = amb.status === 'EN_ROUTE' || amb.status === 'TRANSPORTING';
               return (
                 <div
@@ -254,7 +265,7 @@ export default function EmergencyMap({
                       title: `${amb.id} (${amb.capability}) — ${amb.status}`,
                       sub: amb.assignedIncident
                         ? `Assigned: ${amb.assignedIncident} | ETA: ${amb.etaMinutes} min`
-                        : `Ready at ${amb.location}`,
+                        : `Ready at ${amb.location || 'Standby Station'}`,
                       type: 'Ambulance',
                     })
                   }
@@ -269,7 +280,7 @@ export default function EmergencyMap({
 
           {/* EMERGENCY INCIDENT MARKERS */}
           {showIncidents &&
-            incidents.map((inc) => {
+            visibleIncidents.map((inc) => {
               const isSelected = selectedIncidentId === inc.id;
               const sevClass = inc.severity.toLowerCase();
               return (
@@ -285,7 +296,7 @@ export default function EmergencyMap({
                   onMouseEnter={() =>
                     setActiveTooltip({
                       title: `[${inc.severity}] ${inc.title}`,
-                      sub: `${inc.location} • Status: ${inc.status} • ETA: ${inc.etaMinutes || 'N/A'}m`,
+                      sub: `${inc.location || 'Sector Incident'} • Status: ${inc.status} • ETA: ${inc.etaMinutes || 'N/A'}m`,
                       type: 'Incident',
                     })
                   }

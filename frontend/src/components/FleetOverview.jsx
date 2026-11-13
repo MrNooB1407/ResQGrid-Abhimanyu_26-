@@ -1,7 +1,11 @@
 import React from 'react';
-import { Ambulance, Gauge, Fuel } from 'lucide-react';
+import { Ambulance, Gauge, Fuel, AlertOctagon } from 'lucide-react';
 
-export default function FleetOverview({ ambulances }) {
+export default function FleetOverview({
+  ambulances,
+  onSimulateBreakdown,
+  isBreakdownLoadingId,
+}) {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'AVAILABLE':
@@ -63,6 +67,7 @@ export default function FleetOverview({ ambulances }) {
               <th>Station / Base</th>
               <th>Assignment &amp; Destination</th>
               <th>Speed / Fuel</th>
+              {onSimulateBreakdown && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -86,7 +91,7 @@ export default function FleetOverview({ ambulances }) {
 
                 {/* Location */}
                 <td>
-                  <span style={{ color: '#cbd5e1' }}>{amb.location}</span>
+                  <span style={{ color: '#cbd5e1' }}>{amb.location || amb.displayLocation || 'Standby Sector'}</span>
                 </td>
 
                 {/* Assignment & Destination */}
@@ -94,7 +99,7 @@ export default function FleetOverview({ ambulances }) {
                   {amb.assignedIncident ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                       <span style={{ color: '#fbbf24', fontWeight: 600 }}>
-                        {amb.assignedIncident} &rarr; {amb.targetDestination}
+                        {amb.assignedIncident} &rarr; {amb.targetDestination || 'Hospital'}
                       </span>
                       {amb.etaMinutes !== null && amb.etaMinutes > 0 && (
                         <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
@@ -116,12 +121,28 @@ export default function FleetOverview({ ambulances }) {
                       <Gauge size={12} color="#64748b" />
                       {amb.speedKmH} km/h
                     </span>
-                    <span title="Fuel Level" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                      <Fuel size={12} color={amb.fuelPct < 40 ? '#ef4444' : '#10b981'} />
-                      {amb.fuelPct}%
+                    <span title="Fuel Level (Telemetry unrecorded in prototype)" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#64748b' }}>
+                      <Fuel size={12} color="#64748b" />
+                      {amb.fuelDisplay || (amb.fuelPct !== null ? `${amb.fuelPct}%` : 'N/A')}
                     </span>
                   </div>
                 </td>
+
+                {/* Breakdown Simulation Action */}
+                {onSimulateBreakdown && (
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-danger-outline"
+                      onClick={() => onSimulateBreakdown(amb.backendId)}
+                      disabled={isBreakdownLoadingId === amb.backendId || amb.backendStatus === 'OUT_OF_SERVICE'}
+                      title={amb.backendStatus === 'OUT_OF_SERVICE' ? 'Vehicle is already retired' : 'Simulate in-transit vehicle breakdown'}
+                    >
+                      <AlertOctagon size={12} />
+                      <span>{isBreakdownLoadingId === amb.backendId ? 'Failing...' : 'Breakdown'}</span>
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

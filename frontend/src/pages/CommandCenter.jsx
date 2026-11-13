@@ -12,6 +12,13 @@ export default function CommandCenter({
   hospitals,
   selectedIncidentId,
   onSelectIncident,
+  onAllocateIncident,
+  onOpenReportModal,
+  onSimulateBreakdown,
+  onSimulateHospitalSaturation,
+  isAllocatingId,
+  isBreakdownLoadingId,
+  isHospitalLoadingId,
 }) {
   return (
     <div className="dashboard-content">
@@ -31,13 +38,24 @@ export default function CommandCenter({
           incidents={incidents}
           selectedIncidentId={selectedIncidentId}
           onSelectIncident={onSelectIncident}
+          onAllocateIncident={onAllocateIncident}
+          onOpenReportModal={onOpenReportModal}
+          isAllocatingId={isAllocatingId}
         />
       </div>
 
       {/* Bottom Section: Ambulance Fleet & Hospital Capacity Overviews */}
       <div className="bottom-grid">
-        <FleetOverview ambulances={ambulances} />
-        <HospitalOverview hospitals={hospitals} />
+        <FleetOverview
+          ambulances={ambulances}
+          onSimulateBreakdown={onSimulateBreakdown}
+          isBreakdownLoadingId={isBreakdownLoadingId}
+        />
+        <HospitalOverview
+          hospitals={hospitals}
+          onSimulateHospitalSaturation={onSimulateHospitalSaturation}
+          isHospitalLoadingId={isHospitalLoadingId}
+        />
       </div>
     </div>
   );

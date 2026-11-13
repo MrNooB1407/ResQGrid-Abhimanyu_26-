@@ -5,12 +5,17 @@ import {
   Ambulance,
   Building2,
   Flame,
+  Zap,
+  PlusCircle,
 } from 'lucide-react';
 
 export default function IncidentFeed({
   incidents,
   selectedIncidentId,
   onSelectIncident,
+  onAllocateIncident,
+  onOpenReportModal,
+  isAllocatingId,
 }) {
   const [severityFilter, setSeverityFilter] = useState('ALL');
 
@@ -43,6 +48,17 @@ export default function IncidentFeed({
           <h3>Recent Emergency Feed</h3>
           <span className="panel-badge">{`${incidents.length} Active Feeds`}</span>
         </div>
+        {onOpenReportModal && (
+          <button
+            type="button"
+            className="btn-danger-outline"
+            onClick={onOpenReportModal}
+            title="Report new emergency incident"
+          >
+            <PlusCircle size={13} />
+            <span>Report</span>
+          </button>
+        )}
       </div>
 
       {/* Severity Filter Tabs */}
@@ -113,7 +129,7 @@ export default function IncidentFeed({
                 <div className="incident-meta-row">
                   <div className="incident-loc">
                     <MapPin size={12} color="#64748b" />
-                    <span>{inc.location}</span>
+                    <span>{inc.location || inc.displayLocation || 'Unspecified Location'}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <Clock size={11} color="#64748b" />
@@ -124,22 +140,41 @@ export default function IncidentFeed({
                 {/* Assigned Resources & Status */}
                 <div className="incident-assignment-row">
                   <span className="incident-status-tag">{inc.status}</span>
-                  {inc.assignedAmbulance && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Ambulance size={11} color="#10b981" />
-                      {inc.assignedAmbulance}
-                    </span>
-                  )}
-                  {inc.assignedHospital && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Building2 size={11} color="#3b82f6" />
-                      {inc.assignedHospital}
-                    </span>
-                  )}
-                  {inc.etaMinutes > 0 && (
-                    <span style={{ marginLeft: 'auto', color: '#fbbf24', fontWeight: 600 }}>
-                      ETA {inc.etaMinutes}m
-                    </span>
+                  {inc.assignedAmbulance ? (
+                    <>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Ambulance size={11} color="#10b981" />
+                        {inc.assignedAmbulance}
+                      </span>
+                      {inc.assignedHospital && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Building2 size={11} color="#3b82f6" />
+                          {inc.assignedHospital}
+                        </span>
+                      )}
+                      {inc.etaMinutes > 0 && (
+                        <span style={{ marginLeft: 'auto', color: '#fbbf24', fontWeight: 600 }}>
+                          ETA {inc.etaMinutes}m
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    onAllocateIncident && (
+                      <button
+                        type="button"
+                        className="btn-action-allocate"
+                        style={{ marginLeft: 'auto' }}
+                        disabled={isAllocatingId === inc.backendId}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAllocateIncident(inc.backendId);
+                        }}
+                        title="Dispatch nearest capable ambulance and reserve receiving hospital beds"
+                      >
+                        <Zap size={12} />
+                        <span>{isAllocatingId === inc.backendId ? 'Allocating...' : 'Allocate Unit'}</span>
+                      </button>
+                    )
                   )}
                 </div>
               </div>

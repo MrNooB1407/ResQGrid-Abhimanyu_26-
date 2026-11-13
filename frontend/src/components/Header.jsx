@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Bell, Clock } from 'lucide-react';
+import { RefreshCw, Bell, Clock, PlusCircle } from 'lucide-react';
 import NotificationDrawer from './NotificationDrawer';
 
 export default function Header({
@@ -9,6 +9,8 @@ export default function Header({
   isRefreshing,
   notifications,
   onMarkAllRead,
+  onOpenReportModal,
+  lastUpdated,
 }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showNotifications, setShowNotifications] = useState(false);
@@ -54,10 +56,29 @@ export default function Header({
       {/* Header Right Utilities */}
       <div className="header-right">
         {/* Real-time Clock */}
-        <div className="clock-display" title="System Operational Time">
+        <div className="clock-display" title={lastUpdated ? `Last Synced with SQLite: ${lastUpdated}` : 'System Operational Time'}>
           <Clock size={14} className="clock-icon" />
           <span>{formatClock(currentTime)}</span>
         </div>
+
+        {/* Report Emergency Quick Action Button */}
+        {onOpenReportModal && (
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={onOpenReportModal}
+            style={{
+              padding: '0.4rem 0.75rem',
+              fontSize: '0.75rem',
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              borderColor: '#f87171',
+            }}
+            title="Create a new emergency incident report"
+          >
+            <PlusCircle size={14} />
+            <span>Report Emergency</span>
+          </button>
+        )}
 
         {/* Refresh Action Button */}
         <button

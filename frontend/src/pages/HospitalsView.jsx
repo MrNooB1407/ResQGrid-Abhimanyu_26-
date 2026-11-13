@@ -2,12 +2,16 @@ import React from 'react';
 import { Bed, HeartPulse, Wind, ArrowLeft } from 'lucide-react';
 import HospitalOverview from '../components/HospitalOverview';
 
-export default function HospitalsView({ hospitals, onBackToCommand }) {
+export default function HospitalsView({
+  hospitals,
+  onBackToCommand,
+  onSimulateHospitalSaturation,
+  isHospitalLoadingId,
+}) {
   const totalBeds = hospitals.reduce((acc, h) => acc + h.totalBeds, 0);
   const availBeds = hospitals.reduce((acc, h) => acc + h.availableBeds, 0);
   const totalIcu = hospitals.reduce((acc, h) => acc + h.totalIcu, 0);
   const availIcu = hospitals.reduce((acc, h) => acc + h.availableIcu, 0);
-  const totalVents = hospitals.reduce((acc, h) => acc + h.totalVents, 0);
   const availVents = hospitals.reduce((acc, h) => acc + h.availableVents, 0);
 
   return (
@@ -63,12 +67,16 @@ export default function HospitalsView({ hospitals, onBackToCommand }) {
             <span className="kpi-title">Ventilators Online</span>
             <Wind size={16} />
           </div>
-          <div className="kpi-value">{`${availVents} / ${totalVents}`}</div>
+          <div className="kpi-value">{`${availVents} Online`}</div>
           <span className="kpi-subtext">Critical respiratory units ready</span>
         </div>
       </div>
 
-      <HospitalOverview hospitals={hospitals} />
+      <HospitalOverview
+        hospitals={hospitals}
+        onSimulateHospitalSaturation={onSimulateHospitalSaturation}
+        isHospitalLoadingId={isHospitalLoadingId}
+      />
     </div>
   );
 }
