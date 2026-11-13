@@ -1,4 +1,5 @@
 import React from 'react';
+import numpy as np;
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './styles/global.css';
